@@ -2,52 +2,42 @@ from pyspark.sql import SparkSession
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 
-def main():
+APP_NAME = "bronze_fClientes"
 
-    layer_source = "raw"
-    layer_target = "bronze"
-    table = "dClientes"
-    raw_path = f"gs://studies_dataproc/{layer_source}/{layer_source}_{table}"
-    bronze_path = f"gs://studies_dataproc/{layer_target}/{layer_target}_{table}"
-
-
+def get_spark_session():
     spark = SparkSession.builder \
-        .appName("bronze_dClientes") \
-        .getOrCreate()
-
+                .appName(APP_NAME) \
+                .getOrCreate()
     spark.conf.set("spark.sql.session.timeZone", "America/Sao_Paulo")
+    print("-- Spark Session Created")
+    return spark
 
-    layer_source = "raw"
-    layer_target = "bronze"
-    table = "dClientes"
-    bronze_path = f"gs://studies_dataproc/{layer_target}/{layer_target}_{table}"
+def read_raw_data(spark, raw_path):
+    return spark.read.parquet(raw_path).alias("raw")
 
-
-    df = spark.read.parquet(raw_path) \
-        .alias("raw")
-
+def merge_bronze_delta(spark, bronze_path, df):
     if DeltaTable.isDeltaTable(spark, bronze_path):
         print("-- Iniciando o merge...")
         delta_table = DeltaTable.forPath(spark, bronze_path).alias("bronze")
         delta_table \
             .merge(df, "raw.customer_id = bronze.customer_id and bronze.current_flag = True") \
             .whenMatchedUpdate(
-                condition="""
-                        raw.first_name <> bronze.first_name OR
-                        raw.last_name <> bronze.last_name OR
-                        raw.email <> bronze.email OR
-                        raw.phone <> bronze.phone OR
-                        raw.city <> bronze.city OR
-                        raw.state <> bronze.state OR
-                        raw.signup_date <> bronze.signup_date OR
-                        raw.last_purchase_date <> bronze.last_purchase_date OR
-                        raw.total_spent <> bronze.total_spent OR
-                        raw.is_active <> bronze.is_active
+                 condition="""
+                    raw.first_name <> bronze.first_name OR
+                    raw.last_name <> bronze.last_name OR
+                    raw.email <> bronze.email OR
+                    raw.phone <> bronze.phone OR
+                    raw.city <> bronze.city OR
+                    raw.state <> bronze.state OR
+                    raw.signup_date <> bronze.signup_date OR
+                    raw.last_purchase_date <> bronze.last_purchase_date OR
+                    raw.total_spent <> bronze.total_spent OR
+                    raw.is_active <> bronze.is_active
                     """, set = {"end_date": F.current_date(), 
-                                "current_flag" : F.lit(False), 
-                                "updated_at": F.current_timestamp()})\
-            .execute()
-        
+                                    "current_flag" : F.lit(False), 
+                                    "updated_at": F.current_timestamp()})\
+                .execute()
+            
         delta_table \
             .merge(df, "raw.customer_id = bronze.customer_id and bronze.current_flag = True") \
             .whenNotMatchedInsert(values={
@@ -66,17 +56,30 @@ def main():
                     "end_date": F.lit("9999-12-31").cast("date"),
                     "current_flag":  F.lit(True),
                     "updated_at": F.current_timestamp()       
-            })\
+                })\
             .whenNotMatchedBySourceUpdate(
                 "bronze.current_flag = True", 
                 set = {"end_date": F.current_date(), "current_flag" : F.lit(False), "updated_at": F.current_timestamp()})\
             .execute()
-        
+            
         print("-- Merge finalizado...")
     else:
         print("-- Criando tabela delta...")
         df.write.format("delta").mode("overwrite").save(bronze_path)
         print("-- Criação finalizada...")
+
+def main():
+    layer_source = "raw"
+    layer_target = "bronze"
+    table = "dClientes"
+    raw_path = f"gs://studies_dataproc/{layer_source}/{layer_source}_{table}"
+    bronze_path = f"gs://studies_dataproc/{layer_target}/{layer_target}_{table}"
+
+    spark = get_spark_session()
+
+    df = read_raw_data(spark, raw_path)
+
+    merge_bronze_delta(spark, bronze_path, df)
 
     spark.stop()
 
