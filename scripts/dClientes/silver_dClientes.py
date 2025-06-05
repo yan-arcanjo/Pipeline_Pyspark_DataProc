@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # Variáveis de atualização
 data_hora_script = datetime.now()    # Data hora atual
-data_referencia_db = datetime.strftime("%Y-%m-%d %H:%M:%S")  # Formato banco de dados: YYYY-MM-DD HH:MM:SS
+data_referencia_db = data_hora_script.strftime("%Y-%m-%d %H:%M:%S")  # Formato banco de dados: YYYY-MM-DD HH:MM:SS
 
 # Cria a Sessão Spark
 logging.info("Iniciando SparkSession.")
@@ -37,9 +37,11 @@ silver_path = f"gs://studies_dataproc/{layer_target}/{layer_target}_{table}"
 # Carrega a tabela delta bronze
 try:
     bronze_df = DeltaTable.forPath(spark, bronze_path).toDF().where("current_flag = true")
+    logging.info("Delta bronze carregado com sucesso.")
 except Exception as e:
     logging.exception(f"Erro ao carregar {bronze_path}: {e}")
     sys.exit(1)    
+
 
 # Processando tabela bronze, alterando nome e aplicando alguns tratamentos básicos
 processed_df = bronze_df.select(
@@ -62,6 +64,8 @@ processed_df = bronze_df.select(
 # Atualizando tabela silver utilizando merge
 if DeltaTable.isDeltaTable(spark, silver_path):
     silver_delta = DeltaTable.forPath(spark, silver_path).alias("silver")
+
+    logging.info("Carregado Delta Silver e iniciando atualização dos dados...")
     
     silver_delta \
         .merge(
@@ -114,6 +118,8 @@ if DeltaTable.isDeltaTable(spark, silver_path):
             }
         ).whenNotMatchedBySourceDelete() \
         .execute()
+
+    logging.info("Delta Silver atualizada.")
 else:   
     # Caso não exista a tabela silver, será criado
     processed_df.write.format("delta").mode("overwrite").save(silver_path)

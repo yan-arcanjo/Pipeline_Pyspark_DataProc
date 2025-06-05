@@ -2,6 +2,8 @@ from airflow.models.dag import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.exceptions import AirflowException
+import pendulum
+from datetime import datetime
 
 default_args = {
     "owner": "yanarcanjo",
@@ -29,47 +31,27 @@ with DAG(
     process_bronze_layer = BashOperator(
         task_id="process_bronze_layer",
         bash_command=f"""
-            gcloud dataproc batches submit \
-                --project mineral-seat-458614-s8 \
-                --region us-east1 \
-                pyspark \
-                --batch processed_bronze_dClientes-{str(datetime.now()).replace("-", "").replace(" ", "-").replace(":","")[:15]} \
-                gs://studies_dataproc/scripts/bronze_dClientes.py \
-                --version 1.1 \
-                --subnet default \
-                --service-account 483261401319-compute@developer.gserviceaccount.com \
-                --properties spark.jars.packages=io.delta:delta-core_2.12:2.2.0,spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension,spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+             gcloud dataproc jobs submit pyspark gs://studies_dataproc/scripts/Clientes/bronze_dClientes.py \
+            --cluster=datalake \
+            --region=us-central1 
         """
     )
 
     process_silver_layer = BashOperator(
         task_id="process_silver_layer",
         bash_command=f"""
-            gcloud dataproc batches submit \
-                --project mineral-seat-458614-s8 \
-                --region us-east1 \
-                pyspark \
-                --batch processed_silver_dClientes-{str(datetime.now()).replace("-", "").replace(" ", "-").replace(":","")[:15]} \
-                gs://studies_dataproc/scripts/silver_dClientes.py \
-                --version 1.1 \
-                --subnet default \
-                --service-account 483261401319-compute@developer.gserviceaccount.com \
-                --properties spark.jars.packages=io.delta:delta-core_2.12:2.2.0,spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension,spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+             gcloud dataproc jobs submit pyspark gs://studies_dataproc/scripts/Clientes/silver_dClientes.py \
+            --cluster=datalake \
+            --region=us-central1 
         """
     )
 
     process_gold_layer = BashOperator(
         task_id="process_gold_layer",
         bash_command=f"""
-            gcloud dataproc batches submit pyspark \
-                --project mineral-seat-458614-s8 \
-                --region us-east1 \
-                --batch processed_gold_dClientes-{str(datetime.now()).replace("-", "").replace(" ", "-").replace(":","")[:15]} \
-                gs://studies_dataproc/scripts/gold_dClientes.py \
-                --version 1.1 \
-                --subnet default \
-                --service-account 483261401319-compute@developer.gserviceaccount.com \
-                --properties spark.jars.packages=io.delta:delta-core_2.12:2.2.0,spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension,spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+           gcloud dataproc jobs submit pyspark gs://studies_dataproc/scripts/Clientes/gold_dClientes.py \
+            --cluster=datalake \
+            --region=us-central1 
         """
     )
 

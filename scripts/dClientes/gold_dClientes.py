@@ -92,6 +92,7 @@ enriched_df = silver_delta \
         .when(datediff(current_date(), col("data_ultima_compra")) > 90, "Médio" )\
         .otherwise("Baixo")
     )
+logging.info("Regras de negócio criadas.")
 
 # Salvando a tabela gold em uma tabela física no BigQuery
 enriched_df.write\
@@ -101,12 +102,15 @@ enriched_df.write\
     .option("writeMethod", "direct")\
     .save()
 
+logging.info("Salvo tabela gold no BQ.")
 # Salvando a tabela gold em uma tabela delta
 enriched_df.write \
     .format("delta") \
     .mode("overwrite") \
     .option("mergeSchema", "true") \
     .save(gold_path)
+
+logging.info("Salvo tabela gold em Delta.")
 
 logging.info(f"Finalizado o processamento da tabela e gravado no BigQuery em f{project_bq}.{dataset_bq}.dClientes")
 # CRIANDO ANÁLISES ESPECÍFICAS DE CLIENTES

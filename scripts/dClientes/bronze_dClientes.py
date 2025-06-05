@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # Variáveis de atualização
 data_hora_script = datetime.now()    # Data hora atual
-data_referencia_db = datetime.strftime("%Y-%m-%d %H:%M:%S")  # Formato banco de dados: YYYY-MM-DD HH:MM:SS
+data_referencia_db = data_hora_script.strftime("%Y-%m-%d %H:%M:%S")  # Formato banco de dados: YYYY-MM-DD HH:MM:SS
 
 # Cria a Sessão Spark
 spark = SparkSession.builder \
